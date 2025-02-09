@@ -8,7 +8,7 @@ Unlike other portable C standard libraries like newlib, we aim for feature parit
 
 mlibc is capable enough to run a range of software, including Xorg, several Wayland compositors, Mesa, and web browsers like WebKitGTK -- though some features are still missing.
 
-Individual operating systems can opt in or out of certain features as desired; for example POSIX APIs like `pthread` are gated behind the POSIX 'option', Linux APIs like `epoll` are gated behind the Linux option, etc.
+Individual operating systems can opt in or out of certain features as desire; for example POSIX APIs like `pthread` are gated behind the POSIX 'option', Linux APIs like `epoll` are gated behind the Linux option, etc.
 
 ![Continuous Integration](https://github.com/managarm/mlibc/workflows/Continuous%20Integration/badge.svg)
 
