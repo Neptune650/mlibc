@@ -27,7 +27,7 @@ uintptr_t libraryBase = 0x41000000;
 
 constexpr bool verbose = false;
 constexpr bool stillSlightlyVerbose = false;
-constexpr bool logBaseAddresses = true;
+constexpr bool logBaseAddresses = false;
 constexpr bool logRpath = false;
 constexpr bool logLdPath = false;
 constexpr bool logSymbolVersions = false;
@@ -2206,4 +2206,3 @@ void Loader::_processLazyRelocations(SharedObject *object) {
 		}
 	}
 }
-
