@@ -121,6 +121,11 @@ long jrand48(unsigned short [3]) {
 	__builtin_unreachable();
 }
 
+long int mrand48(void) {
+	__ensure(!"Not implemented");
+	__builtin_unreachable();
+}
+
 // Borrowed from musl
 void srandom(unsigned int seed) {
 	int k;
@@ -266,18 +271,21 @@ char *realpath(const char *path, char *out) {
 		resolv.push_back(0);
 		ps = 1;
 	}else{
-		MLIBC_CHECK_OR_ENOSYS(mlibc::sys_getcwd, nullptr);
-
 		// Try to getcwd() until the buffer is large enough.
 		resolv.resize(128);
+		int saved_errno = errno;
 		while(true) {
-			int e = mlibc::sys_getcwd(resolv.data(), resolv.size());
-			if(e == ERANGE) {
-				resolv.resize(2 * resolv.size());
-			}else if(!e) {
+			// getcwd could smash errno on failure + resize (ERANGE) + success,
+			// so we have to save and restore errno in that scenario.
+			char *ret = getcwd(resolv.data(), resolv.size());
+			if(ret != NULL) {
 				break;
+			}
+
+			if(errno == ERANGE) {
+				errno = saved_errno;
+				resolv.resize(2 * resolv.size());
 			}else{
-				errno = e;
 				return nullptr;
 			}
 		}
@@ -524,11 +532,6 @@ float strtof_l(const char *__restrict__ nptr, char **__restrict__ endptr, locale
 }
 
 int strcoll_l(const char *, const char *, locale_t) {
-	__ensure(!"Not implemented");
-	__builtin_unreachable();
-}
-
-int getloadavg(double *, int) {
 	__ensure(!"Not implemented");
 	__builtin_unreachable();
 }

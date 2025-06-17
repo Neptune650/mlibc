@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <abi-bits/sigevent.h>
 #include <abi-bits/pid_t.h>
 #include <abi-bits/uid_t.h>
 #include <bits/size_t.h>
@@ -13,11 +14,6 @@
 #define POLL_ERR 4
 #define POLL_PRI 5
 #define POLL_HUP 6
-
-union sigval {
-	int sival_int;
-	void *sival_ptr;
-};
 
 /* struct taken from musl. */
 
@@ -155,6 +151,7 @@ typedef struct {
 #define SIGSYS    31
 #define SIGUNUSED SIGSYS
 #define SIGCANCEL 32
+#define SIGTIMER  33
 
 #define MINSIGSTKSZ 2048
 #define SIGSTKSZ 8192
@@ -253,15 +250,6 @@ typedef struct __stack {
 #endif
 
 #include <bits/threads.h>
-
-struct sigevent {
-	union sigval sigev_value;
-	int sigev_notify;
-	int sigev_signo;
-	void (*sigev_notify_function)(union sigval);
-	struct __mlibc_threadattr *sigev_notify_attributes;
-	pid_t sigev_notify_thread_id;
-};
 
 struct sigaction {
 	union {
@@ -600,6 +588,48 @@ typedef struct __ucontext {
 	sigset_t uc_sigmask;
 } ucontext_t;
 
+#elif defined(__loongarch64)
+/* Taken from musl. */
+
+#define NGREG 32
+#define REG_RA 1
+#define REG_SP 3
+#define REG_S0 23
+#define REG_S1 24
+#define REG_A0 4
+#define REG_S2 25
+#define REG_NARGS 8
+
+typedef unsigned long greg_t, gregset_t[32];
+
+struct sigcontext {
+	unsigned long sc_pc;
+	unsigned long sc_regs[32];
+	unsigned sc_flags;
+	unsigned long sc_extcontext[1] __attribute__((__aligned__(16)));
+};
+
+typedef struct {
+	unsigned long pc;
+	unsigned long gregs[32];
+	unsigned flags;
+	unsigned long extcontext[1] __attribute__((__aligned__(16)));
+} mcontext_t;
+
+struct sigaltstack {
+	void *ss_sp;
+	int ss_flags;
+	size_t ss_size;
+};
+
+typedef struct __ucontext {
+	unsigned long uc_flags;
+	struct __ucontext *uc_link;
+	stack_t uc_stack;
+	sigset_t uc_sigmask;
+	long __uc_pad;
+	mcontext_t uc_mcontext;
+} ucontext_t;
 
 #else
 #error "Missing architecture specific code."

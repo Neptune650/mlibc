@@ -25,6 +25,7 @@
 #define CLOCK_BOOTTIME 7
 #define CLOCK_REALTIME_ALARM 8
 #define CLOCK_BOOTTIME_ALARM 9
+#define CLOCK_TAI 11
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,21 +134,6 @@ time_t timelocal(struct tm *__tm);
 time_t timegm(struct tm *__tm);
 
 #endif /* !__MLIBC_ABI_ONLY */
-
-#ifdef __cplusplus
-}
-#endif
-
-/* Linux extensions. */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct itimerspec {
-	struct timespec it_interval;
-	struct timespec it_value;
-};
 
 #ifdef __cplusplus
 }

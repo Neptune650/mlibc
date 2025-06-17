@@ -5,18 +5,17 @@ on: [pull_request, merge_group]
 jobs:
     check-bindings:
         name: Verify bindings generation
-        runs-on: ubuntu-22.04
-        container:
-          image: ghcr.io/managarm/mlibc-crossers:latest
+        runs-on: ubuntu-latest
+        container: debian:sid
         steps:
           - name: Install prerequisites
             run: |
                 apt-get update
-                apt-get install -y ninja-build \
+                apt-get install -y meson ninja-build \
                                 python3-setuptools python3-jsonschema \
                                 python3-pexpect python3-pip python3-clang \
-                                netbase clang lld rustfmt
-                pip install --break-system-packages -U xbstrap pyexpect meson
+                                netbase clang lld rustfmt git rsync
+                pip install --break-system-packages -U xbstrap pyexpect
           - name: Prepare directories
             run: |
                 mkdir src/

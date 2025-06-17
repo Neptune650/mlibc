@@ -1,6 +1,7 @@
 #pragma once
 
 #include <errno.h>
+#include <mlibc/debug.hpp>
 
 #include "fs.frigg_bragi.hpp"
 #include "posix.frigg_bragi.hpp"
@@ -69,9 +70,15 @@ inline int operator|(managarm::fs::Errors e, ToErrno) {
 			return ENOTEMPTY;
 		case managarm::fs::Errors::CONNECTION_REFUSED:
 			return ECONNREFUSED;
+		case managarm::fs::Errors::ALREADY_CONNECTED:
+			return EISCONN;
 		case managarm::fs::Errors::INTERNAL_ERROR:
 			return EIO;
 	}
+
+	mlibc::panicLogger() << "unhandled managarm::fs::Errors " << static_cast<int32_t>(e)
+	                     << frg::endlog;
+	__builtin_unreachable();
 }
 
 inline int operator|(managarm::posix::Errors e, ToErrno) {
@@ -132,5 +139,13 @@ inline int operator|(managarm::posix::Errors e, ToErrno) {
 			return ECHILD;
 		case managarm::posix::Errors::SYMBOLIC_LINK_LOOP:
 			return ELOOP;
+		case managarm::posix::Errors::ALREADY_CONNECTED:
+			return EISCONN;
+		case managarm::posix::Errors::UNSUPPORTED_SOCKET_TYPE:
+			return ESOCKTNOSUPPORT;
 	}
+
+	mlibc::panicLogger() << "unhandled managarm::posix::Errors " << static_cast<int32_t>(e)
+	                     << frg::endlog;
+	__builtin_unreachable();
 }

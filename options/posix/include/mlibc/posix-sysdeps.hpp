@@ -7,6 +7,7 @@
 #include <abi-bits/vm-flags.h>
 #include <bits/off_t.h>
 #include <bits/ssize_t.h>
+#include <mlibc/ansi-sysdeps.hpp>
 #include <mlibc/fsfd_target.hpp>
 
 #include <fcntl.h>
@@ -25,6 +26,7 @@
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/wait.h>
+#include <sys/shm.h>
 #include <sched.h>
 #include <termios.h>
 #include <time.h>
@@ -37,7 +39,7 @@ void sys_libc_log(const char *message);
 
 [[noreturn]] void sys_exit(int status);
 [[noreturn, gnu::weak]] void sys_thread_exit();
-int sys_clock_get(int clock, time_t *secs, long *nanos);
+
 
 int sys_open(const char *pathname, int flags, mode_t mode, int *fd);
 [[gnu::weak]] int sys_flock(int fd, int options);
@@ -108,6 +110,8 @@ int sys_close(int fd);
 [[gnu::weak]] int sys_setpriority(int which, id_t who, int prio);
 [[gnu::weak]] int sys_getschedparam(void *tcb, int *policy, struct sched_param *param);
 [[gnu::weak]] int sys_setschedparam(void *tcb, int policy, const struct sched_param *param);
+[[gnu::weak]] int sys_getparam(pid_t pid, struct sched_param *param);
+[[gnu::weak]] int sys_setparam(pid_t pid, const struct sched_param *param);
 [[gnu::weak]] int sys_get_max_priority(int policy, int *out);
 [[gnu::weak]] int sys_get_min_priority(int policy, int *out);
 [[gnu::weak]] int sys_getcwd(char *buffer, size_t size);
@@ -194,12 +198,14 @@ int sys_vm_unmap(void *pointer, size_t size);
 [[gnu::weak]] int sys_setgroups(size_t size, const gid_t *list);
 [[gnu::weak]] int sys_memfd_create(const char *name, int flags, int *fd);
 [[gnu::weak]] int sys_madvise(void *addr, size_t length, int advice);
+[[gnu::weak]] int sys_posix_madvise(void *addr, size_t length, int advice);
 [[gnu::weak]] int sys_msync(void *addr, size_t length, int flags);
 
 [[gnu::weak]] int sys_getitimer(int which, struct itimerval *curr_value);
 [[gnu::weak]] int sys_setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value);
 [[gnu::weak]] int sys_timer_create(clockid_t clk, struct sigevent *__restrict evp, timer_t *__restrict res);
 [[gnu::weak]] int sys_timer_settime(timer_t t, int flags, const struct itimerspec *__restrict val, struct itimerspec *__restrict old);
+[[gnu::weak]] int sys_timer_gettime(timer_t t, struct itimerspec *val);
 [[gnu::weak]] int sys_timer_delete(timer_t t);
 [[gnu::weak]] int sys_times(struct tms *tms, clock_t *out);
 [[gnu::weak]] int sys_uname(struct utsname *buf);
@@ -235,6 +241,14 @@ int sys_vm_unmap(void *pointer, size_t size);
 [[gnu::weak]] int sys_setthreadaffinity(pid_t tid, size_t cpusetsize, const cpu_set_t *mask);
 
 [[gnu::weak]] int sys_waitid(idtype_t idtype, id_t id, siginfo_t *info, int options);
+
+[[gnu::weak]] int sys_name_to_handle_at(int dirfd, const char *pathname, struct file_handle *handle, int *mount_id, int flags);
+[[gnu::weak]] int sys_splice(int in_fd, off_t *in_off, int out_fd, off_t *out_off, size_t size, unsigned int flags, ssize_t *out);
+
+[[gnu::weak]] int sys_shmat(void **seg_start, int shmid, const void *shmaddr, int shmflg);
+[[gnu::weak]] int sys_shmctl(int *idx, int shmid, int cmd, struct shmid_ds *buf);
+[[gnu::weak]] int sys_shmdt(const void *shmaddr);
+[[gnu::weak]] int sys_shmget(int *shm_id, key_t key, size_t size, int shmflg);
 
 } //namespace mlibc
 

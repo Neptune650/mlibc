@@ -55,6 +55,7 @@ if not no_headers
 		'include/abi-bits/packet.h',
 		'include/abi-bits/inotify.h',
 		'include/abi-bits/clockid_t.h',
+		'include/abi-bits/ipc.h',
 		'include/abi-bits/shm.h',
 		'include/abi-bits/mqueue.h',
 		'include/abi-bits/suseconds_t.h',
@@ -65,6 +66,10 @@ if not no_headers
 		'include/abi-bits/statvfs.h',
 		'include/abi-bits/ioctls.h',
 		'include/abi-bits/xattr.h',
+		'include/abi-bits/random.h',
+		'include/abi-bits/rlim_t.h',
+		'include/abi-bits/sigval.h',
+		'include/abi-bits/sigevent.h',
 		subdir: 'abi-bits',
 		follow_symlinks: true
 	)
