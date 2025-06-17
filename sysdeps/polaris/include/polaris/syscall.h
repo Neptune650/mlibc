@@ -9,6 +9,7 @@
 #define SYS_close 3
 #define SYS_seek 8
 #define SYS_mmap 9
+#define SYS_mprotect 10
 #define SYS_munmap 11
 #define SYS_ioctl 16
 #define SYS_nanosleep 35
