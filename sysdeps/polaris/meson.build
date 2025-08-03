@@ -1,6 +1,6 @@
 sysdep_supported_options = {
 	'posix': true,
-	'linux': false,
+	'linux': true,
 	'glibc': true,
 	'bsd': true,
 }
@@ -12,7 +12,6 @@ rtld_sources += files(
 libc_sources += files(
 	'generic/entry.cpp',
 	'generic/generic.cpp',
-	'generic/pty.cpp',
 	'generic/thread.cpp',
 	'generic/thread.S'
 )
@@ -68,8 +67,21 @@ if not no_headers
 		'include/abi-bits/rlim_t.h',
 		'include/abi-bits/sigval.h',
 		'include/abi-bits/sigevent.h',
+		'include/abi-bits/utmp-defines.h',
+		'include/abi-bits/utmpx.h',
 		subdir: 'abi-bits',
 		follow_symlinks: true
+	)
+
+	install_headers(
+		'include/asm/ioctl.h',
+		'include/asm/ioctls.h',
+		subdir: 'asm',
+	)
+
+	install_headers(
+		'include/linux/fb.h',
+		subdir: 'linux',
 	)
 
 	install_headers(

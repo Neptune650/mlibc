@@ -293,8 +293,8 @@ int sys_chmod(const char *pathname, mode_t mode) {
 
 int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offset, void **window) {
 	uint64_t ret = syscall(SYS_mmap, hint, size, prot, flags, fd, offset);
-	int ret_but_int = (int)ret;
-	if (-ret_but_int > -4096) {
+	int64_t ret_but_int = (int64_t)ret;
+	if ((ret_but_int < 0) && (ret_but_int > -4096)) {
 		*window = ((void *)-1);
 		return -ret_but_int;
 	}
@@ -302,13 +302,9 @@ int sys_vm_map(void *hint, size_t size, int prot, int flags, int fd, off_t offse
 	return 0;
 }
 
-#ifndef MLIBC_BUILDING_RTLD
-
 int sys_vm_protect(void *pointer, size_t size, int prot) {
 	return -(syscall(SYS_mprotect, pointer, size, prot));
 }
-
-#endif
 
 int sys_vm_unmap(void *pointer, size_t size) { return -(syscall(SYS_munmap, pointer, size)); }
 

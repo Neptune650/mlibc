@@ -72,8 +72,12 @@ inline int operator|(managarm::fs::Errors e, ToErrno) {
 			return ECONNREFUSED;
 		case managarm::fs::Errors::ALREADY_CONNECTED:
 			return EISCONN;
+		case managarm::fs::Errors::NOT_A_SOCKET:
+			return ENOTSOCK;
 		case managarm::fs::Errors::INTERNAL_ERROR:
 			return EIO;
+		case managarm::fs::Errors::INTERRUPTED:
+			return EINTR;
 	}
 
 	mlibc::panicLogger() << "unhandled managarm::fs::Errors " << static_cast<int32_t>(e)
@@ -143,6 +147,8 @@ inline int operator|(managarm::posix::Errors e, ToErrno) {
 			return EISCONN;
 		case managarm::posix::Errors::UNSUPPORTED_SOCKET_TYPE:
 			return ESOCKTNOSUPPORT;
+		case managarm::posix::Errors::INTERRUPTED:
+			return EINTR;
 	}
 
 	mlibc::panicLogger() << "unhandled managarm::posix::Errors " << static_cast<int32_t>(e)
