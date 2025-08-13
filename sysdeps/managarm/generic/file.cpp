@@ -18,6 +18,7 @@
 
 #include <bits/ensure.h>
 #include <bits/errors.hpp>
+#include <bragi/helpers-frigg.hpp>
 #include <mlibc/all-sysdeps.hpp>
 #include <mlibc/allocator.hpp>
 #include <mlibc/posix-pipe.hpp>
@@ -36,22 +37,22 @@ namespace mlibc {
 int sys_chdir(const char *path) {
 	SignalGuard sguard;
 
-	managarm::posix::CntRequest<MemoryAllocator> req(getSysdepsAllocator());
-	req.set_request_type(managarm::posix::CntReqType::CHDIR);
+	managarm::posix::ChdirRequest<MemoryAllocator> req(getSysdepsAllocator());
 	req.set_path(frg::string<MemoryAllocator>(getSysdepsAllocator(), path));
 
-	auto [offer, send_req, recv_resp] = exchangeMsgsSync(
+	auto [offer, send_req, send_tail, recv_resp] = exchangeMsgsSync(
 	    getPosixLane(),
 	    helix_ng::offer(
-	        helix_ng::sendBragiHeadOnly(req, getSysdepsAllocator()), helix_ng::recvInline()
+	        helix_ng::sendBragiHeadTail(req, getSysdepsAllocator()), helix_ng::recvInline()
 	    )
 	);
 
 	HEL_CHECK(offer.error());
 	HEL_CHECK(send_req.error());
+	HEL_CHECK(send_tail.error());
 	HEL_CHECK(recv_resp.error());
 
-	managarm::posix::SvrResponse<MemoryAllocator> resp(getSysdepsAllocator());
+	managarm::posix::ChdirResponse<MemoryAllocator> resp(getSysdepsAllocator());
 	resp.ParseFromArray(recv_resp.data(), recv_resp.length());
 	if (resp.error() != managarm::posix::Errors::SUCCESS)
 		return resp.error() | toErrno;
@@ -87,22 +88,22 @@ int sys_fchdir(int fd) {
 int sys_chroot(const char *path) {
 	SignalGuard sguard;
 
-	managarm::posix::CntRequest<MemoryAllocator> req(getSysdepsAllocator());
-	req.set_request_type(managarm::posix::CntReqType::CHROOT);
+	managarm::posix::ChrootRequest<MemoryAllocator> req(getSysdepsAllocator());
 	req.set_path(frg::string<MemoryAllocator>(getSysdepsAllocator(), path));
 
-	auto [offer, send_req, recv_resp] = exchangeMsgsSync(
+	auto [offer, send_req, send_tail, recv_resp] = exchangeMsgsSync(
 	    getPosixLane(),
 	    helix_ng::offer(
-	        helix_ng::sendBragiHeadOnly(req, getSysdepsAllocator()), helix_ng::recvInline()
+	        helix_ng::sendBragiHeadTail(req, getSysdepsAllocator()), helix_ng::recvInline()
 	    )
 	);
 
 	HEL_CHECK(offer.error());
 	HEL_CHECK(send_req.error());
+	HEL_CHECK(send_tail.error());
 	HEL_CHECK(recv_resp.error());
 
-	managarm::posix::SvrResponse<MemoryAllocator> resp(getSysdepsAllocator());
+	managarm::posix::ChrootResponse<MemoryAllocator> resp(getSysdepsAllocator());
 	resp.ParseFromArray(recv_resp.data(), recv_resp.length());
 	if (resp.error() != managarm::posix::Errors::SUCCESS)
 		return resp.error() | toErrno;
@@ -503,21 +504,37 @@ int sys_read_entries(int fd, void *buffer, size_t max_size, size_t *bytes_read) 
 	if (!handle)
 		return EBADF;
 
-	managarm::fs::CntRequest<MemoryAllocator> req(getSysdepsAllocator());
-	req.set_req_type(managarm::fs::CntReqType::PT_READ_ENTRIES);
+	managarm::fs::ReadEntriesRequest<MemoryAllocator> req(getSysdepsAllocator());
 
 	auto [offer, send_req, recv_resp] = exchangeMsgsSync(
 	    handle,
 	    helix_ng::offer(
-	        helix_ng::sendBragiHeadOnly(req, getSysdepsAllocator()), helix_ng::recvInline()
+	        helix_ng::want_lane,
+	        helix_ng::sendBragiHeadOnly(req, getSysdepsAllocator()),
+	        helix_ng::recvInline()
 	    )
 	);
 	HEL_CHECK(offer.error());
+	auto conversation = offer.descriptor();
 	HEL_CHECK(send_req.error());
 	HEL_CHECK(recv_resp.error());
 
-	managarm::fs::SvrResponse<MemoryAllocator> resp(getSysdepsAllocator());
-	resp.ParseFromArray(recv_resp.data(), recv_resp.length());
+	auto preamble = bragi::read_preamble(recv_resp);
+	__ensure(!preamble.error());
+
+	frg::vector<uint8_t, MemoryAllocator> tailBuffer{getSysdepsAllocator()};
+	tailBuffer.resize(preamble.tail_size());
+	auto [recv_tail] = exchangeMsgsSync(
+	    conversation.getHandle(), helix_ng::recvBuffer(tailBuffer.data(), tailBuffer.size())
+	);
+
+	HEL_CHECK(recv_tail.error());
+
+	auto resp = *bragi::parse_head_tail<managarm::fs::ReadEntriesResponse>(
+	    recv_resp, tailBuffer, getSysdepsAllocator()
+	);
+	recv_resp.reset();
+
 	if (resp.error() == managarm::fs::Errors::END_OF_FILE) {
 		*bytes_read = 0;
 		return 0;
@@ -1104,10 +1121,9 @@ int sys_poll(struct pollfd *fds, nfds_t count, int timeout, int *num_events) {
 
 	managarm::posix::SvrResponse<MemoryAllocator> resp(getSysdepsAllocator());
 	resp.ParseFromArray(recv_resp.data(), recv_resp.length());
-	if (resp.error() == managarm::posix::Errors::ILLEGAL_ARGUMENTS) {
-		return EINVAL;
+	if (resp.error() != managarm::posix::Errors::SUCCESS) {
+		return resp.error() | toErrno;
 	} else {
-		__ensure(resp.error() == managarm::posix::Errors::SUCCESS);
 		__ensure(resp.events_size() == count);
 
 		int m = 0;
@@ -2620,7 +2636,10 @@ int sys_gethostname(char *buffer, size_t bufsize) {
 	return 0;
 }
 
-int sys_fsync(int) {
+int sys_fsync(int fd) {
+	auto handle = getHandleForFd(fd);
+	if (!handle)
+		return EBADF;
 	mlibc::infoLogger() << "mlibc: fsync is a stub" << frg::endlog;
 	return 0;
 }
@@ -2695,6 +2714,38 @@ int sys_unlockpt(int fd) {
 		return e;
 
 	return 0;
+}
+
+int sys_setrlimit(int resource, const struct rlimit *limit) {
+	switch (resource) {
+		case RLIMIT_NOFILE: {
+			SignalGuard sguard;
+
+			managarm::posix::SetResourceLimitRequest<MemoryAllocator> req(getSysdepsAllocator());
+			req.set_resource(resource);
+			req.set_cur(limit->rlim_cur);
+			req.set_max(limit->rlim_max);
+
+			auto [offer, send_req, recv_resp] = exchangeMsgsSync(
+			    getPosixLane(),
+			    helix_ng::offer(
+			        helix_ng::sendBragiHeadOnly(req, getSysdepsAllocator()), helix_ng::recvInline()
+			    )
+			);
+
+			HEL_CHECK(offer.error());
+			HEL_CHECK(send_req.error());
+			HEL_CHECK(recv_resp.error());
+
+			managarm::posix::SetResourceLimitResponse<MemoryAllocator> resp(getSysdepsAllocator());
+			resp.ParseFromArray(recv_resp.data(), recv_resp.length());
+
+			return resp.error() | toErrno;
+		}
+		default:
+			mlibc::infoLogger() << "mlibc: unhandled rlimit resource " << resource << frg::endlog;
+			return EINVAL;
+	}
 }
 
 int sys_getrlimit(int resource, struct rlimit *limit) {
@@ -2896,6 +2947,17 @@ int sys_statfs(const char *path, struct statfs *buf) {
 
 	memset(buf, NULL, sizeof(struct statfs));
 	buf->f_type = resp.fstype();
+	return 0;
+}
+
+int sys_getpriority(int, id_t, int *value) {
+	mlibc::infoLogger() << "\e[35mmlibc: getpriority() always returns 0\e[39m" << frg::endlog;
+	*value = 0;
+	return 0;
+}
+
+int sys_setpriority(int, id_t, int) {
+	mlibc::infoLogger() << "\e[35mmlibc: setpriority() is a stub\e[39m" << frg::endlog;
 	return 0;
 }
 

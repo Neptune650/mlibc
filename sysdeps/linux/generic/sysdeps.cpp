@@ -20,7 +20,7 @@
 #include <sys/syscall.h>
 #include "cxx-syscall.hpp"
 
-#if __MLIBC_LINUX_OPTION && !defined(MLIBC_BUILDING_RTLD)
+#if (__MLIBC_POSIX_OPTION || __MLIBC_LINUX_OPTION) && !defined(MLIBC_BUILDING_RTLD)
 
 #include "generic-helpers/netlink.hpp"
 
@@ -74,6 +74,13 @@ struct user_desc {
 extern "C" void *__m68k_read_tp() {
 	auto ret = do_syscall(__NR_get_thread_area, 0);
 	return (void *)ret;
+}
+#elif defined(__riscv)
+int sys_riscv_hwprobe(struct riscv_hwprobe *pairs, size_t pair_count, size_t cpusetsize, cpu_set_t *cpus, unsigned int flags) {
+	auto ret = do_syscall(SYS_riscv_hwprobe, pairs, pair_count, cpusetsize, cpus, flags);
+	if(int e = sc_error(ret); e)
+		return -e;
+	return sc_int_result<int>(ret);
 }
 #endif
 
@@ -2421,6 +2428,51 @@ int sys_shmget(int *shm_id, key_t key, size_t size, int shmflg) {
 	*shm_id = sc_int_result<int>(ret);
 	return 0;
 }
+
+#if !defined(MLIBC_BUILDING_RTLD)
+int sys_inet_configured(bool *ipv4, bool *ipv6) {
+	struct context {
+		bool *ipv4;
+		bool *ipv6;
+	} context = {
+		.ipv4 = ipv4,
+		.ipv6 = ipv6
+	};
+
+	NetlinkHelper nl;
+	if (!nl.send_request(RTM_GETADDR)) {
+		*ipv4 = false;
+		*ipv6 = false;
+		return 0;
+	}
+
+	auto ret = nl.recv([](void *data, const nlmsghdr *hdr) {
+		if (hdr->nlmsg_type == RTM_NEWADDR || hdr->nlmsg_len >= sizeof(struct ifaddrmsg)) {
+			const struct ifaddrmsg *ifaddr = reinterpret_cast<const struct ifaddrmsg *>(NLMSG_DATA(hdr));
+			struct context *ctx = reinterpret_cast<struct context *>(data);
+
+			char name[IF_NAMESIZE];
+			auto interfaceNameResult = sys_if_indextoname(ifaddr->ifa_index, name);
+
+			if (interfaceNameResult || !strncmp(name, "lo", IF_NAMESIZE))
+				return;
+
+			if (ifaddr->ifa_family == AF_INET)
+				*ctx->ipv4 = true;
+			else if (ifaddr->ifa_family == AF_INET6)
+				*ctx->ipv6 = true;
+		}
+	}, &context);
+
+	if (!ret) {
+		*ipv4 = false;
+		*ipv6 = false;
+		return 0;
+	}
+
+	return 0;
+}
+#endif // !defined(MLIBC_BUILDING_RTLD)
 
 #endif // __MLIBC_POSIX_OPTION
 
