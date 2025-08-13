@@ -329,6 +329,21 @@ int sys_setegid(gid_t egid) {
 	return 0;
 }
 
+int sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid) {
+	// TODO: handle saved set-user-ID
+	(void)sgid;
+
+	int real = sys_setgid(rgid);
+	if (real)
+		return real;
+
+	int effective = sys_setegid(egid);
+	if (effective)
+		return effective;
+
+	return 0;
+}
+
 uid_t sys_getuid() {
 	SignalGuard sguard;
 
@@ -421,6 +436,45 @@ int sys_seteuid(uid_t euid) {
 	resp.ParseFromArray(recv_resp.data(), recv_resp.length());
 	if (resp.error() != managarm::posix::Errors::SUCCESS)
 		return resp.error() | toErrno;
+
+	return 0;
+}
+
+int sys_setresuid(uid_t ruid, uid_t euid, uid_t suid) {
+	// TODO: handle saved set-user-ID
+	(void)suid;
+
+	int real = sys_setuid(ruid);
+	if (real)
+		return real;
+
+	int effective = sys_seteuid(euid);
+	if (effective)
+		return effective;
+
+	return 0;
+}
+
+int sys_setreuid(uid_t ruid, uid_t euid) {
+	int real = sys_setuid(ruid);
+	if (real)
+		return real;
+
+	int effective = sys_seteuid(euid);
+	if (effective)
+		return effective;
+
+	return 0;
+}
+
+int sys_setregid(gid_t rgid, gid_t egid) {
+	int real = sys_setgid(rgid);
+	if (real)
+		return real;
+
+	int effective = sys_setegid(egid);
+	if (effective)
+		return effective;
 
 	return 0;
 }
@@ -639,12 +693,17 @@ int sys_clone(void *tcb, pid_t *pid_out, void *stack) {
 }
 
 int sys_tcb_set(void *pointer) {
-#if defined(__aarch64__)
+#if defined(__x86_64__)
+	HEL_CHECK(helWriteFsBase(pointer));
+#elif defined(__aarch64__)
 	uintptr_t addr = reinterpret_cast<uintptr_t>(pointer);
 	addr += sizeof(Tcb) - 0x10;
 	asm volatile("msr tpidr_el0, %0" ::"r"(addr));
+#elif defined(__riscv) && __riscv_xlen == 64
+	uintptr_t tp = reinterpret_cast<uintptr_t>(pointer) + sizeof(Tcb);
+	asm volatile("mv tp, %0" : : "r"(tp) : "memory");
 #else
-	HEL_CHECK(helWriteFsBase(pointer));
+#error Unknown architecture
 #endif
 	return 0;
 }

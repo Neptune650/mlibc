@@ -395,10 +395,24 @@ internal_sources = [
 	'options/internal' / host_machine.cpu_family() / 'fenv.S',
 ]
 
+if host_machine.cpu_family() == 'riscv64'
+	internal_sources += [
+		'options/internal/riscv64/hwprobe.cpp',
+	]
+endif
+
 if not no_headers
 	install_headers(
 		'options/internal/include/stdint.h'
 	)
+
+	if host_machine.cpu_family() == 'riscv64'
+		install_headers(
+			'options/internal/riscv64-include/sys/hwprobe.h',
+			subdir: 'sys'
+		)
+	endif
+
 	install_headers(
 		'options/internal/include/bits/wchar_t.h',
 		'options/internal/include/bits/wchar.h',
@@ -500,14 +514,16 @@ if not headers_only
 		lsb_sources,
 	]
 
-	# Our library have different behaviour when built as static and shared libraries.
+	ld_library_name = get_option('ld_library_name')
+
+	# Our libraries have different behaviour when built as static and shared libraries.
 	# Hence we need to rebuild the object files with a different define for each mode.
 	if library_type in ['static', 'both']
 		static_cpp_args = [
 			'-DMLIBC_STATIC_BUILD',
 			'-DFRIGG_HAVE_LIBC',
 		]
-		ld_static_lib = static_library('ld', rtld_sources,
+		ld_static_lib = static_library(ld_library_name, rtld_sources,
 			name_prefix: '',
 			cpp_args: ld_cpp_args + static_cpp_args,
 			include_directories: rtld_include_dirs,
@@ -524,7 +540,7 @@ if not headers_only
 		)
 	endif
 	if library_type in ['shared', 'both']
-		ld_shared_lib = shared_library('ld', rtld_sources + rtld_dso_sources,
+		ld_shared_lib = shared_library(ld_library_name, rtld_sources + rtld_dso_sources,
 			name_prefix: '',
 			cpp_args: ld_cpp_args,
 			include_directories: rtld_include_dirs,
